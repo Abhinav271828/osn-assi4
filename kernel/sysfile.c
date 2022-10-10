@@ -84,7 +84,7 @@ sys_read(void)
   int ret = fileread(f, p, n);
   struct proc *myp = myproc();
   if (myp->strace_m & (1 << SYS_read))
-    printf("%d: syscall read (%lu %d) -> %d\n", myp->pid, p, n, ret);
+    printf("%d: syscall read (file_ptr %d %d) -> %d\n", myp->pid, p, n, ret);
   return ret;
 }
 
@@ -104,7 +104,7 @@ sys_write(void)
   
   struct proc *myp = myproc();
   if (myp->strace_m & (1 << SYS_wait))
-    printf("%d: syscall write (%lu %d) -> %d\n", myp->pid, p, n, ret);
+    printf("%d: syscall write (%d %d) -> %d\n", myp->pid, p, n, ret);
   return ret;
 }
 
@@ -138,7 +138,7 @@ sys_fstat(void)
   int ret = filestat(f, st);
   struct proc *p = myproc();
   if (p->strace_m & (1 << SYS_wait))
-    printf("%d: syscall fstat (%lu) -> %d\n", p->pid, st, ret);
+    printf("%d: syscall fstat (%d) -> %d\n", p->pid, st, ret);
   return ret;
 }
 
@@ -514,7 +514,7 @@ sys_exec(void)
 
   struct proc *p = myproc();
   if (p->strace_m & (1 << SYS_wait))
-    printf("%d: syscall exec (%lu) -> %d\n", p->pid, uargv, ret);
+    printf("%d: syscall exec (%d) -> %d\n", p->pid, uargv, ret);
   return ret;
 
  bad:

@@ -44,7 +44,7 @@ sys_wait(void)
   int ret = wait(p);
   struct proc *myp = myproc();
   if (myp->strace_m & (1 << SYS_wait))
-    printf("%d: syscall wait (%lu) -> %d\n", myp->pid, p, ret);
+    printf("%d: syscall wait (%d) -> %d\n", myp->pid, p, ret);
   return ret;
 }
 
@@ -112,7 +112,7 @@ sys_kill(void)
   int ret = kill(pid);
   struct proc *p = myproc();
   if (p->strace_m & (1 << SYS_kill))
-    printf("%d: syscall kill (%lu) -> %d\n", p->pid, pid, ret);
+    printf("%d: syscall kill (%d) -> %d\n", p->pid, pid, ret);
   return ret;
 }
 
