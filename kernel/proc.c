@@ -173,6 +173,7 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->strace_m = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -452,6 +453,18 @@ void
    }
  }
 
+void
+alarm(int n, void fn(void))
+{
+  ;
+}
+
+int
+trace(uint64 mask)
+{
+  myproc()->strace_m = mask;
+  return 0;
+}
 
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -465,7 +478,7 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  
+
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.

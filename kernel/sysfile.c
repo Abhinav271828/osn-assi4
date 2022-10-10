@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "syscall.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -62,6 +63,9 @@ sys_dup(void)
   if((fd=fdalloc(f)) < 0)
     return -1;
   filedup(f);
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_dup))
+    printf("%d: syscall dup (file_ptr) -> %d\n", p->pid, fd);
   return fd;
 }
 
@@ -76,7 +80,12 @@ sys_read(void)
   argint(2, &n);
   if(argfd(0, 0, &f) < 0)
     return -1;
-  return fileread(f, p, n);
+
+  int ret = fileread(f, p, n);
+  struct proc *myp = myproc();
+  if (myp->strace_m & (1 << SYS_read))
+    printf("%d: syscall read (%lu %d) -> %d\n", myp->pid, p, n, ret);
+  return ret;
 }
 
 uint64
@@ -91,7 +100,12 @@ sys_write(void)
   if(argfd(0, 0, &f) < 0)
     return -1;
 
-  return filewrite(f, p, n);
+  int ret = filewrite(f, p, n);
+  
+  struct proc *myp = myproc();
+  if (myp->strace_m & (1 << SYS_wait))
+    printf("%d: syscall write (%lu %d) -> %d\n", myp->pid, p, n, ret);
+  return ret;
 }
 
 uint64
@@ -99,11 +113,15 @@ sys_close(void)
 {
   int fd;
   struct file *f;
+  struct proc *p = myproc();
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
-  myproc()->ofile[fd] = 0;
+  p->ofile[fd] = 0;
   fileclose(f);
+
+  if (p->strace_m & (1 << SYS_close))
+    printf("%d: syscall close (%d) -> 0\n", p->pid, fd);
   return 0;
 }
 
@@ -116,7 +134,12 @@ sys_fstat(void)
   argaddr(1, &st);
   if(argfd(0, 0, &f) < 0)
     return -1;
-  return filestat(f, st);
+
+  int ret = filestat(f, st);
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_wait))
+    printf("%d: syscall fstat (%lu) -> %d\n", p->pid, st, ret);
+  return ret;
 }
 
 // Create the path new as a link to the same inode as old.
@@ -158,6 +181,9 @@ sys_link(void)
 
   end_op();
 
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_link))
+    printf("%d: syscall link (str) -> 0\n", p->pid);
   return 0;
 
 bad:
@@ -234,6 +260,9 @@ sys_unlink(void)
 
   end_op();
 
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_unlink))
+    printf("%d: syscall unlink (str) -> 0\n", p->pid);
   return 0;
 
 bad:
@@ -367,6 +396,9 @@ sys_open(void)
   iunlock(ip);
   end_op();
 
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_open))
+    printf("%d: syscall open (%d) -> %d\n", p->pid, omode, fd);
   return fd;
 }
 
@@ -383,6 +415,13 @@ sys_mkdir(void)
   }
   iunlockput(ip);
   end_op();
+
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_mkdir))
+  {
+    int pid = p->pid;
+    printf("%d: syscall mkdir (str) -> 0\n", pid);
+  }
   return 0;
 }
 
@@ -403,6 +442,10 @@ sys_mknod(void)
   }
   iunlockput(ip);
   end_op();
+  
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_mknod))
+    printf("%d: syscall mknod (%d %d) -> 0\n", p->pid, major, minor);
   return 0;
 }
 
@@ -428,6 +471,9 @@ sys_chdir(void)
   iput(p->cwd);
   end_op();
   p->cwd = ip;
+
+  if (p->strace_m & (1 << SYS_chdir))
+    printf("%d: syscall chdir () -> 0\n", p->pid);
   return 0;
 }
 
@@ -466,6 +512,9 @@ sys_exec(void)
   for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
     kfree(argv[i]);
 
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_wait))
+    printf("%d: syscall exec (%lu) -> %d\n", p->pid, uargv, ret);
   return ret;
 
  bad:
@@ -501,5 +550,8 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+
+  if (p->strace_m & (1 << SYS_pipe))
+    printf("%d: syscall pipe () -> 0\n", p->pid);
   return 0;
 }

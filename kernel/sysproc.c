@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "syscall.h"
 
 uint64
 sys_exit(void)
@@ -18,13 +19,21 @@ sys_exit(void)
 uint64
 sys_getpid(void)
 {
-  return myproc()->pid;
+  struct proc *p = myproc();
+  int ret = p->pid;
+  if (p->strace_m & (1 << SYS_getpid))
+    printf("%d: syscall getpid () -> %d\n", ret, ret);
+  return ret;
 }
 
 uint64
 sys_fork(void)
 {
-  return fork();
+  int ret = fork();
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_fork))
+    printf("%d: syscall fork () -> %d\n", p->pid, ret);
+  return ret;
 }
 
 uint64
@@ -32,19 +41,42 @@ sys_wait(void)
 {
   uint64 p;
   argaddr(0, &p);
-  return wait(p);
+  int ret = wait(p);
+  struct proc *myp = myproc();
+  if (myp->strace_m & (1 << SYS_wait))
+    printf("%d: syscall wait (%lu) -> %d\n", myp->pid, p, ret);
+  return ret;
 }
 
+uint64
+sys_sigalarm(void)
+{
+  return 0;
+}
+
+uint64
+sys_trace(void)
+{
+  uint64 addr;
+  argaddr(0, &addr);
+  int ret = trace(addr);
+  return ret;
+}
+ 
 uint64
 sys_sbrk(void)
 {
   uint64 addr;
   int n;
+  struct proc *p = myproc();
 
   argint(0, &n);
-  addr = myproc()->sz;
+  addr = p->sz;
   if(growproc(n) < 0)
     return -1;
+
+  if (p->strace_m & (1 << SYS_sbrk))
+    printf("%d: syscall sbrk (%d) -> %d\n", p->pid, n, addr);
   return addr;
 }
 
@@ -53,18 +85,21 @@ sys_sleep(void)
 {
   int n;
   uint ticks0;
+  struct proc *p = myproc();
 
   argint(0, &n);
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
-    if(killed(myproc())){
+    if(killed(p)){
       release(&tickslock);
       return -1;
     }
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  if (p->strace_m & (1 << SYS_sleep))
+    printf("%d: syscall sleep (%u) -> 0\n", p->pid, ticks);
   return 0;
 }
 
@@ -74,7 +109,11 @@ sys_kill(void)
   int pid;
 
   argint(0, &pid);
-  return kill(pid);
+  int ret = kill(pid);
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_kill))
+    printf("%d: syscall kill (%lu) -> %d\n", p->pid, pid, ret);
+  return ret;
 }
 
 // return how many clock tick interrupts have occurred
@@ -87,5 +126,8 @@ sys_uptime(void)
   acquire(&tickslock);
   xticks = ticks;
   release(&tickslock);
+  struct proc *p = myproc();
+  if (p->strace_m & (1 << SYS_uptime))
+    printf("%d: syscall uptime () -> %u\n", p->pid, xticks);
   return xticks;
 }
