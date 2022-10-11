@@ -51,6 +51,30 @@ sys_wait(void)
 uint64
 sys_sigalarm(void)
 {
+  int n;
+  argint(0, &n);
+  uint64 periodic_fn_ptr;
+  argaddr(1, &periodic_fn_ptr);
+
+  struct proc *p = myproc();
+  *p->saved_tf = *p->trapframe;
+
+  acquire(&p->lock);
+  if (p->rtime % n == 0)
+    p->trapframe->epc = periodic_fn_ptr;
+  release(&p->lock);
+
+  return 0;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+
+  *p->trapframe = *p->saved_tf;
+  p->trapframe->epc += 4;
+
   return 0;
 }
 

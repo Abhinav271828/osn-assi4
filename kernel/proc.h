@@ -110,4 +110,6 @@ struct proc {
   uint etime;                   // When did the process exited
 
   uint64 strace_m;              // The strace mask
+
+  struct trapframe *saved_tf;
 };

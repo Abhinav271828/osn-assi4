@@ -162,6 +162,9 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  if(p->saved_tf)
+    kfree((void*)p->saved_tf);
+  p->saved_tf = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -452,12 +455,6 @@ void
      release(&p->lock); 
    }
  }
-
-void
-alarm(int n, void fn(void))
-{
-  ;
-}
 
 int
 trace(uint64 mask)
