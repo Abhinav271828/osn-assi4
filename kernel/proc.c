@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "limits.h"
 
 struct cpu cpus[NCPU];
 
@@ -477,25 +478,64 @@ scheduler(void)
   struct cpu *c = mycpu();
 
   c->proc = 0;
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+  if (SCHEDULER == RR)
+  {
+    for(;;){
+      // Avoid deadlock by ensuring that devices can interrupt.
+      intr_on();
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+      for(p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          // Switch to chosen process.  It is the process's job
+          // to release its lock and then reacquire it
+          // before jumping back to us.
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->proc = 0;
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
+    }
+  }
+  else if (SCHEDULER == FCFS)
+  {
+    uint64 earliest_ctime;
+    struct proc *to_be_run;
+
+    for (;;)
+    {
+      intr_on();
+
+      earliest_ctime = ULONG_MAX;
+      to_be_run = 0;
+      for (p = proc; p < &proc[NPROC]; p++)
+        if (p->state == RUNNABLE && (p->ctime < earliest_ctime || to_be_run == 0))
+        {
+          to_be_run = p;
+          earliest_ctime = p->ctime;
+        }
+
+      if (to_be_run == 0) continue;
+
+      //printf("running %s\n", to_be_run->name);
+      acquire(&to_be_run->lock);
+      if (to_be_run->state != RUNNABLE)
+      {
+        release(&to_be_run->lock);
+        continue;
+      }
+      to_be_run->state = RUNNING;
+      c->proc = to_be_run;
+      swtch(&c->context, &to_be_run->context);
+
+      c->proc = 0;
+      release(&to_be_run->lock);
     }
   }
 }
