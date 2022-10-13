@@ -27,6 +27,11 @@ Once the process is identified, the scheduler acquires its lock and checks if it
 Additionally, we ensure that timer-interrupts (in `trap.c`) are checked for *only* when `FCFS` is not the scheduler. This is to avoid preemption.
 
 ## Lottery-Based Scheduler
+This scheduler also works in a straightforward way. First, it passes over `proc[]` to find the total number of tickets assigned to all runnable processes, and then finds a random ticket in the range `[0, total_tickets)`.
+
+Then, it finds which process this ticket belongs to in another pass over the runnable processes in `proc[]`. This is where `to_be_run` is assigned. The last part of the function, as in the other algorithms, acquires the lock, checks the state, and runs it. Since clock interrupts are checked for in this algorithm, it is preemptive.
+
+Additionally, the `sys_settickets()` syscall has been implemented, to set the number of tickets of the calling process. The `allocproc()` function has been modified to initialise the `tickets` field of the `proc` structure to 1, and the `fork()` function to initialise the `tickets` field of `np` (the child process) from that of `p` (the parent process).
 
 The code in the files that constitute xv6 is
 Copyright 2006-2022 Frans Kaashoek, Robert Morris, and Russ Cox.
