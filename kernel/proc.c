@@ -479,32 +479,31 @@ scheduler(void)
 
   c->proc = 0;
 
-  if (SCHEDULER == RR)
-  {
-    for(;;){
-      // Avoid deadlock by ensuring that devices can interrupt.
-      intr_on();
+#ifdef RR
+  for(;;){
+    // Avoid deadlock by ensuring that devices can interrupt.
+    intr_on();
 
-      for(p = proc; p < &proc[NPROC]; p++) {
-        acquire(&p->lock);
-        if(p->state == RUNNABLE) {
-          // Switch to chosen process.  It is the process's job
-          // to release its lock and then reacquire it
-          // before jumping back to us.
-          p->state = RUNNING;
-          c->proc = p;
-          swtch(&c->context, &p->context);
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        // Switch to chosen process.  It is the process's job
+        // to release its lock and then reacquire it
+        // before jumping back to us.
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
 
-          // Process is done running for now.
-          // It should have changed its p->state before coming back.
-          c->proc = 0;
-        }
-        release(&p->lock);
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
       }
+      release(&p->lock);
     }
   }
-  else if (SCHEDULER == FCFS)
-  {
+#endif
+
+#ifdef FCFS
     uint64 earliest_ctime;
     struct proc *to_be_run;
 
@@ -523,7 +522,6 @@ scheduler(void)
 
       if (to_be_run == 0) continue;
 
-      //printf("running %s\n", to_be_run->name);
       acquire(&to_be_run->lock);
       if (to_be_run->state != RUNNABLE)
       {
@@ -537,7 +535,7 @@ scheduler(void)
       c->proc = 0;
       release(&to_be_run->lock);
     }
-  }
+#endif
 }
 
 // Switch to scheduler.  Must hold only p->lock
