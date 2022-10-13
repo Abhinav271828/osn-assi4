@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-#include "limits.h"
+#include <limits.h>
 
 struct cpu cpus[NCPU];
 
@@ -149,6 +149,9 @@ found:
   p->rtime = 0;
   p->etime = 0;
   p->ctime = ticks;
+#ifdef LBS
+  p->tickets = 1;
+#endif
 
 
   return p;
@@ -304,6 +307,10 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+#ifdef LBS
+  np->tickets = p->tickets;
+#endif
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -464,6 +471,14 @@ trace(uint64 mask)
   return 0;
 }
 
+unsigned short lfsr = 0xACE1u;
+unsigned bit;
+unsigned rand()
+{
+  bit  = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ) & 1;
+  return lfsr = (lfsr >> 1) | (bit << 15);
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -535,6 +550,50 @@ scheduler(void)
       c->proc = 0;
       release(&to_be_run->lock);
     }
+#endif
+
+#ifdef LBS
+  int total_tickets = 0;
+  struct proc *to_be_run = 0;
+  int ticket_picked = 0, lower_bound = 0, upper_bound = 0;
+
+  for (;;)
+  {
+    intr_on();
+
+    for (p = proc; p < &proc[NPROC]; p++)
+      if (p->state == RUNNABLE)
+        total_tickets += p->tickets;
+
+    if (total_tickets == 0) continue;
+
+    ticket_picked = rand() % total_tickets;
+
+    for (p = proc; p < &proc[NPROC]; p++)
+      if (p->state == RUNNABLE)
+      {
+        upper_bound = lower_bound + p->tickets - 1;
+        if (lower_bound <= ticket_picked && ticket_picked <= upper_bound)
+        {
+          to_be_run = p;
+          break;
+        }
+        lower_bound += p->tickets;
+      }
+
+    acquire(&to_be_run->lock);
+    if (to_be_run->state != RUNNABLE)
+    {
+      release(&to_be_run->lock);
+      continue;
+    }
+    to_be_run->state = RUNNING;
+    c->proc = to_be_run;
+    swtch(&c->context, &to_be_run->context);
+
+    c->proc = 0;
+    release(&to_be_run->lock);
+  }
 #endif
 }
 
