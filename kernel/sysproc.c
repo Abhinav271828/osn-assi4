@@ -155,3 +155,17 @@ sys_uptime(void)
     printf("%d: syscall uptime () -> %u\n", p->pid, xticks);
   return xticks;
 }
+
+#ifdef LBS
+uint64
+sys_settickets(void)
+{
+  int tickets;
+  argint(0, &tickets);
+
+  struct proc *p = myproc();
+  p->tickets = tickets;
+
+  return 0;
+}
+#endif

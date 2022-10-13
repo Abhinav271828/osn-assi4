@@ -23,3 +23,7 @@
 #define SYS_sigalarm 23
 #define SYS_sigreturn 24
 #define SYS_trace  25
+
+#ifdef LBS
+#define SYS_settickets 26
+#endif

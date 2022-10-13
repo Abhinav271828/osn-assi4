@@ -112,4 +112,8 @@ struct proc {
   uint64 strace_m;              // The strace mask
 
   struct trapframe *saved_tf;
+
+#ifdef LBS
+  int tickets;                  // For LBS
+#endif
 };
