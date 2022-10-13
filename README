@@ -1,49 +1,32 @@
-xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
-Version 6 (v6).  xv6 loosely follows the structure and style of v6,
-but is implemented for a modern RISC-V multiprocessor using ANSI C.
+# Assignment-4 Operating Systems and Networks (IIIT Hyderabad)
+# Report
 
-ACKNOWLEDGMENTS
+# Specification 1: Syscalls
+## `strace`
+The `proc.h` file was modified to add a new field, `int strace_m`, to the `proc` structure. This field stores the mask that indicates which syscalls are to be traced; it is initialised to 0 by default in `freeproc()`.
 
-xv6 is inspired by John Lions's Commentary on UNIX 6th Edition (Peer
-to Peer Communications; ISBN: 1-57398-013-7; 1st edition (June 14,
-2000)).  See also https://pdos.csail.mit.edu/6.1810/, which provides
-pointers to on-line resources for v6.
+Now, the `sys_trace()` syscall, when called, sets the `strace_m` field of the calling process `p` to its first argument, the mask.
 
-The following people have made contributions: Russ Cox (context switching,
-locking), Cliff Frey (MP), Xiao Yu (MP), Nickolai Zeldovich, and Austin
-Clements.
+All syscalls have been modified to check the corresponding bit of the `strace_m` field of the calling process and print accordingly, just before they `return`. For example, in the case of `sbrk()`, we have added
+```c
+if (p->strace_m & (1 << SYS_sbrk))
+  printf("%d: syscall sbrk (%d) -> %d\n", p->pid, n, addr);
+```
 
-We are also grateful for the bug reports and patches contributed by
-Takahiro Aoyagi, Silas Boyd-Wickizer, Anton Burtsev, carlclone, Ian
-Chen, Dan Cross, Cody Cutler, Mike CAT, Tej Chajed, Asami Doi,
-eyalz800, Nelson Elhage, Saar Ettinger, Alice Ferrazzi, Nathaniel
-Filardo, flespark, Peter Froehlich, Yakir Goaron, Shivam Handa, Matt
-Harvey, Bryan Henry, jaichenhengjie, Jim Huang, Matúš Jókay, John
-Jolly, Alexander Kapshuk, Anders Kaseorg, kehao95, Wolfgang Keller,
-Jungwoo Kim, Jonathan Kimmitt, Eddie Kohler, Vadim Kolontsov, Austin
-Liew, l0stman, Pavan Maddamsetti, Imbar Marinescu, Yandong Mao, Matan
-Shabtay, Hitoshi Mitake, Carmi Merimovich, Mark Morrissey, mtasm, Joel
-Nider, Hayato Ohhashi, OptimisticSide, Harry Porter, Greg Price, Jude
-Rich, segfault, Ayan Shafqat, Eldar Sehayek, Yongming Shen, Fumiya
-Shigemitsu, Cam Tenny, tyfkda, Warren Toomey, Stephen Tu, Rafael Ubal,
-Amane Uehara, Pablo Ventura, Xi Wang, WaheedHafez, Keiichi Watanabe,
-Nicolas Wolovick, wxdao, Grant Wu, Jindong Zhang, Icenowy Zheng,
-ZhUyU1997, and Zou Chang Wei.
+## `sigalarm` (buggy)
+`sigalarm()` proceeds by first saving the frequency `n` and the handler `periodic_fn_ptr`, and then saving the trapframe of the calling process. It then acquires the lock of the process, and if its runtime is a multiple of `n`, it changes the instruction pointer of the trapframe to the pointer of the handler.
 
+`sigreturn()`, correspondingly, restores the saved trapframe and increments the instruction pointer so it can continue where it left off.
+
+# Specification 2: Scheduling Algorithms
+## First Come First Served
+If the `FCFS` macro is defined, the scheduler first makes a pass through the `proc` list to determine the runnable process with the earliest creation time. If no process is runnable, here `to_be_run` remains at its initial value 0 and the function skips all the following steps (effectively, it continues to search `proc[]` for runnable processes).
+
+Once the process is identified, the scheduler acquires its lock and checks if it is still runnable. If it is, it runs it until it stops. At this point, it resets the `proc` field of the CPU and goes back to searching `proc[]` for runnable processes.
+
+Additionally, we ensure that timer-interrupts (in `trap.c`) are checked for *only* when `FCFS` is not the scheduler. This is to avoid preemption.
+
+## Lottery-Based Scheduler
 
 The code in the files that constitute xv6 is
 Copyright 2006-2022 Frans Kaashoek, Robert Morris, and Russ Cox.
-
-ERROR REPORTS
-
-Please send errors and suggestions to Frans Kaashoek and Robert Morris
-(kaashoek,rtm@mit.edu).  The main purpose of xv6 is as a teaching
-operating system for MIT's 6.1810, so we are more interested in
-simplifications and clarifications than new features.
-
-BUILDING AND RUNNING XV6
-
-You will need a RISC-V "newlib" tool chain from
-https://github.com/riscv/riscv-gnu-toolchain, and qemu compiled for
-riscv64-softmmu.  Once they are installed, and in your shell
-search path, you can run "make qemu".
